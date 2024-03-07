@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/go-lark/lark"
@@ -93,7 +94,7 @@ func (d *Dumper) ExportChatMsgs(chatID string) ([]lark.IMMessage, error) {
 	return msgs, nil
 }
 
-func (d *Dumper) Chat2JSON(chatID, dir string) error {
+func (d *Dumper) Chat2JSON(chatID, dir string, withFile bool) error {
 	meta, err := d.bot.GetChat(chatID)
 	if err != nil {
 		return err
@@ -113,21 +114,48 @@ func (d *Dumper) Chat2JSON(chatID, dir string) error {
 		return err
 	}
 
-	return os.WriteFile(fmt.Sprintf("%s/%s.json", dir, fmt.Sprintf("%s-%s", chatID[len(chatID)-6:], strings.ReplaceAll(meta.Data.Name, "/", "_"))), txt, 0644)
-}
+	name := fmt.Sprintf("%s-%s", chatID[len(chatID)-6:], strings.ReplaceAll(meta.Data.Name, "/", "_"))
 
-type listMessageResponse struct {
-	lark.BaseResponse
+	if withFile {
+		err = os.MkdirAll(filepath.Join(dir, name), 0755)
+		if err != nil {
+			return err
+		}
+		for _, msg := range msgs {
+			var fileName, fileID string
+			switch msg.MsgType {
+			case "file":
+				var content lark.FileContent
+				err = json.Unmarshal([]byte(msg.Body.Content), &content)
+				if err != nil {
+					return err
+				}
+				fileID = content.FileKey
+				fileName = content.FileName
+			case "image":
+				var content lark.ImageContent
+				err = json.Unmarshal([]byte(msg.Body.Content), &content)
+				if err != nil {
+					return err
+				}
+				fileID = content.ImageKey
+				fileName = content.ImageKey
+			default:
+				continue
+			}
 
-	Data struct {
-		Items     []lark.IMMessage `json:"items"`
-		PageToken string           `json:"page_token"`
-		HasMore   bool             `json:"has_more"`
-	} `json:"data"`
-}
+			file, err := os.Create(filepath.Join(dir, name, fileName))
+			if err != nil {
+				return err
+			}
+			defer file.Close()
 
-func (d *Dumper) botListMessage(chatID, pageToken string, pageSize int) (*listMessageResponse, error) {
-	var respData listMessageResponse
-	err := d.bot.GetAPIRequest("ListMessage", fmt.Sprintf("/open-apis/im/v1/messages?container_id_type=chat&container_id=%s&page_token=%s&page_size=%d", chatID, pageToken, pageSize), true, nil, &respData)
-	return &respData, err
+			err = d.botDownloadFile(msg.MessageID, fileID, msg.MsgType, file)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return os.WriteFile(fmt.Sprintf("%s/%s.json", dir, name), txt, 0644)
 }

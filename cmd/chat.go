@@ -12,7 +12,7 @@ import (
 
 // cahtCmd represents the chat command
 func newChatCmd() *cobra.Command {
-	var all bool
+	var all, withFile bool
 	var resultPath string
 	cmd := &cobra.Command{
 		Use:   "chats <title query>",
@@ -47,7 +47,7 @@ func newChatCmd() *cobra.Command {
 
 			for _, chat := range chats {
 				fmt.Printf("---dumping chat %s---\n", chat.Name)
-				err = dumper.Chat2JSON(chat.ChatID, resultPath)
+				err = dumper.Chat2JSON(chat.ChatID, resultPath, withFile)
 				if err != nil {
 					return err
 				}
@@ -57,6 +57,7 @@ func newChatCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&all, "all", false, "dump all accessible chats instead of searching by title")
 	cmd.Flags().StringVarP(&resultPath, "path", "p", ".", "target path")
+	cmd.Flags().BoolVar(&withFile, "with-file", false, "dump chat files")
 
 	return cmd
 }
