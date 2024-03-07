@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/go-lark/lark"
 )
@@ -112,7 +113,7 @@ func (d *Dumper) Chat2JSON(chatID, dir string) error {
 		return err
 	}
 
-	return os.WriteFile(fmt.Sprintf("%s/%s.json", dir, fmt.Sprintf("%s-%s", chatID[len(chatID)-6:], meta.Data.Name)), txt, 0644)
+	return os.WriteFile(fmt.Sprintf("%s/%s.json", dir, fmt.Sprintf("%s-%s", chatID[len(chatID)-6:], strings.ReplaceAll(meta.Data.Name, "/", "_"))), txt, 0644)
 }
 
 type listMessageResponse struct {

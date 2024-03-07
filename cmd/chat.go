@@ -46,7 +46,7 @@ func newChatCmd() *cobra.Command {
 			}
 
 			for _, chat := range chats {
-				fmt.Printf("---dumping chat %s\n---", chat.Name)
+				fmt.Printf("---dumping chat %s---\n", chat.Name)
 				err = dumper.Chat2JSON(chat.ChatID, resultPath)
 				if err != nil {
 					return err
