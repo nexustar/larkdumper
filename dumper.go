@@ -121,8 +121,19 @@ func (d *Dumper) Chat2JSON(chatID, dir string, withFile bool) error {
 		if err != nil {
 			return err
 		}
+		type larkFile struct {
+			Key       string
+			Name      string
+			Type      string
+			MessageID string
+		}
+		var files []larkFile
+
 		for _, msg := range msgs {
-			var fileName, fileID string
+			if msg.Deleted {
+				continue
+			}
+
 			switch msg.MsgType {
 			case "file":
 				var content lark.FileContent
@@ -130,27 +141,55 @@ func (d *Dumper) Chat2JSON(chatID, dir string, withFile bool) error {
 				if err != nil {
 					return err
 				}
-				fileID = content.FileKey
-				fileName = content.FileName
+				files = append(files, larkFile{
+					Key:       content.FileKey,
+					Name:      content.FileName,
+					Type:      "file",
+					MessageID: msg.MessageID,
+				})
 			case "image":
 				var content lark.ImageContent
 				err = json.Unmarshal([]byte(msg.Body.Content), &content)
 				if err != nil {
 					return err
 				}
-				fileID = content.ImageKey
-				fileName = content.ImageKey
+				files = append(files, larkFile{
+					Key:       content.ImageKey,
+					Name:      content.ImageKey,
+					Type:      "image",
+					MessageID: msg.MessageID,
+				})
+			case "post":
+				var content lark.PostBody
+				err = json.Unmarshal([]byte(msg.Body.Content), &content)
+				if err != nil {
+					return err
+				}
+				for _, line := range content.Content {
+					for _, elem := range line {
+						if elem.Tag == "img" {
+							files = append(files, larkFile{
+								Key:       *elem.ImageKey,
+								Name:      *elem.ImageKey,
+								Type:      "image",
+								MessageID: msg.MessageID,
+							})
+						}
+					}
+				}
 			default:
 				continue
 			}
+		}
 
-			file, err := os.Create(filepath.Join(dir, name, fileName))
+		for _, file := range files {
+			f, err := os.Create(filepath.Join(dir, name, file.Name))
 			if err != nil {
 				return err
 			}
-			defer file.Close()
+			defer f.Close()
 
-			err = d.botDownloadFile(msg.MessageID, fileID, msg.MsgType, file)
+			err = d.botDownloadFile(file.MessageID, file.Key, file.Type, f)
 			if err != nil {
 				return err
 			}

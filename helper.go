@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/go-lark/lark"
 )
@@ -38,13 +37,17 @@ func (d *Dumper) botDownloadFile(messageID, fileKey, fileType string, output io.
 	req.Header = header
 
 	client := &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout: 0,
 	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("download file failed, status code: %d", resp.StatusCode)
+	}
 
 	_, err = io.Copy(output, resp.Body)
 	return err
